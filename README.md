@@ -6,6 +6,8 @@ setup-cfg-fmt
 
 apply a consistent format to `setup.cfg` files
 
+`setup.cfg` files are read and written as UTF-8.
+
 ## installation
 
 ```bash

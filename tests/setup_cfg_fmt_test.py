@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import os
+import subprocess
+import sys
 
 import pytest
 
@@ -64,6 +66,40 @@ def test_noop(tmpdir):
         '[bdist_wheel]\n'
         'universal = true\n'
     )
+
+
+@pytest.mark.parametrize('utf8_mode', ('0', '1'))
+@pytest.mark.parametrize('needs_format', (False, True))
+def test_utf8_metadata(tmp_path, utf8_mode, needs_format):
+    setup_cfg = tmp_path / 'setup.cfg'
+    expected = (
+        '[metadata]\n'
+        'name = pkg\n'
+        'version = 1.0\n'
+        'author = Jos\u00e9 \u674e\n'
+    )
+    contents = expected
+    if needs_format:
+        contents = contents.replace(
+            'name = pkg\nversion = 1.0\n',
+            'version = 1.0\nname = pkg\n',
+        )
+    setup_cfg.write_bytes(contents.encode('utf-8'))
+    env = dict(
+        os.environ,
+        LC_ALL='C', LANG='C', PYTHONCOERCECLOCALE='0', PYTHONUTF8=utf8_mode,
+        PYTHONPATH=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    )
+    cmd = (sys.executable, '-m', 'setup_cfg_fmt', str(setup_cfg))
+    result = subprocess.run(cmd, env=env, capture_output=True)
+    assert result.returncode == int(needs_format), result.stderr
+    if needs_format:
+        expected = expected.replace('\n', os.linesep)
+    assert setup_cfg.read_bytes() == expected.encode('utf-8')
+
+    result = subprocess.run(cmd, env=env, capture_output=True)
+    assert result.returncode == 0, result.stderr
+    assert setup_cfg.read_bytes() == expected.encode('utf-8')
 
 
 @pytest.mark.parametrize(
